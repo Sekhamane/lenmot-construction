@@ -1,0 +1,14 @@
+import { Employee } from '@/types';
+
+export const mockEmployees: Employee[] = [
+  { id: 'e1', name: 'James Mokoena', idNumber: '8501125065081', contractType: 'Permanent', classification: 'Skilled', assignedProject: 'p1', payFrequency: 'Monthly', dailyRate: 2500, role: 'Project Manager', phone: '+27 82 555 0101', startDate: '2021-03-01', isActive: true },
+  { id: 'e2', name: 'Sarah Ndlovu', idNumber: '9003084065082', contractType: 'Permanent', classification: 'Skilled', assignedProject: 'p2', payFrequency: 'Monthly', dailyRate: 2300, role: 'Project Manager', phone: '+27 82 555 0102', startDate: '2022-01-15', isActive: true },
+  { id: 'e3', name: 'Thabo Mthembu', idNumber: '9208175065083', contractType: 'Permanent', classification: 'Skilled', assignedProject: 'p1', payFrequency: 'Monthly', dailyRate: 1800, role: 'Site Supervisor', phone: '+27 82 555 0103', startDate: '2022-06-01', isActive: true },
+  { id: 'e4', name: 'Pieter van der Merwe', idNumber: '8805125065084', contractType: 'Permanent', classification: 'Skilled', assignedProject: 'p3', payFrequency: 'Monthly', dailyRate: 1600, role: 'Quantity Surveyor', phone: '+27 82 555 0104', startDate: '2023-02-15', isActive: true },
+  { id: 'e5', name: 'Grace Dlamini', idNumber: '9506084065085', contractType: 'Contract', classification: 'Skilled', assignedProject: 'p1', payFrequency: 'Weekly', dailyRate: 950, role: 'Electrician', phone: '+27 82 555 0105', startDate: '2025-04-01', isActive: true },
+  { id: 'e6', name: 'Sipho Nkosi', idNumber: '9712175065086', contractType: 'Contract', classification: 'Skilled', assignedProject: 'p2', payFrequency: 'Weekly', dailyRate: 900, role: 'Plumber', phone: '+27 82 555 0106', startDate: '2025-06-15', isActive: true },
+  { id: 'e7', name: 'Lerato Molefe', idNumber: '0001084065087', contractType: 'Casual', classification: 'Unskilled', assignedProject: 'p1', payFrequency: 'Daily', dailyRate: 350, role: 'General Labourer', phone: '+27 82 555 0107', startDate: '2025-10-01', isActive: true },
+  { id: 'e8', name: 'Mandla Zulu', idNumber: '9905175065088', contractType: 'Casual', classification: 'Unskilled', assignedProject: 'p3', payFrequency: 'Daily', dailyRate: 350, role: 'General Labourer', phone: '+27 82 555 0108', startDate: '2025-09-15', isActive: true },
+  { id: 'e9', name: 'Nomsa Phiri', idNumber: '9407084065089', contractType: 'Permanent', classification: 'Skilled', assignedProject: 'p3', payFrequency: 'Monthly', dailyRate: 1500, role: 'Site Supervisor', phone: '+27 82 555 0109', startDate: '2024-01-10', isActive: true },
+  { id: 'e10', name: 'David Sekhamane', idNumber: '9606175065090', contractType: 'Casual', classification: 'Unskilled', assignedProject: 'p2', payFrequency: 'Daily', dailyRate: 350, role: 'General Labourer', phone: '+27 82 555 0110', startDate: '2025-11-01', isActive: true },
+];

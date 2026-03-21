@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    /* Dark construction theme based on original colors */
+    --background: 216 28% 7%;        /* #0F1419 */
+    --foreground: 240 20% 95%;       /* #F2F2F7 */
+
+    --card: 222 24% 11%;             /* #1E2536 */
+    --card-foreground: 240 20% 95%;
+
+    --popover: 222 24% 11%;
+    --popover-foreground: 240 20% 95%;
+
+    --primary: 37 76% 56%;           /* #E8A838 - gold accent */
+    --primary-foreground: 216 28% 7%;
+
+    --secondary: 222 20% 15%;        /* #242B3A */
+    --secondary-foreground: 240 20% 95%;
+
+    --muted: 222 17% 18%;            /* #2C3446 */
+    --muted-foreground: 240 4% 57%;  /* #8E8E93 */
+
+    --accent: 37 76% 56%;
+    --accent-foreground: 216 28% 7%;
+
+    --destructive: 0 100% 59%;       /* #FF3B30 */
+    --destructive-foreground: 240 20% 95%;
+
+    --border: 222 17% 22%;           /* #2C3446 */
+    --input: 222 20% 12%;            /* #1A2030 */
+    --ring: 37 76% 56%;
+
+    --radius: 0.75rem;
+
+    /* Status colors */
+    --success: 142 71% 49%;          /* #34C759 */
+    --warning: 28 100% 50%;          /* #FF9500 */
+    --info: 197 95% 67%;             /* #5AC8FA */
+
+    /* Chart colors */
+    --chart-blue: 197 95% 67%;
+    --chart-green: 142 71% 49%;
+    --chart-orange: 28 100% 50%;
+    --chart-red: 0 100% 59%;
+    --chart-purple: 276 66% 60%;
+    --chart-teal: 197 100% 70%;
+
+    --sidebar-background: 222 24% 11%;
+    --sidebar-foreground: 240 20% 95%;
+    --sidebar-primary: 37 76% 56%;
+    --sidebar-primary-foreground: 216 28% 7%;
+    --sidebar-accent: 222 20% 15%;
+    --sidebar-accent-foreground: 240 20% 95%;
+    --sidebar-border: 222 17% 22%;
+    --sidebar-ring: 37 76% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border rounded-xl;
+  }
+
+  .metric-card {
+    @apply glass-card p-4 transition-all duration-200 hover:border-primary/30;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200;
+  }
+
+  .nav-item-active {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .filter-chip {
+    @apply px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer;
+  }
+
+  .filter-chip-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .filter-chip-inactive {
+    @apply bg-secondary text-muted-foreground hover:bg-secondary/80;
+  }
+
+  .status-badge {
+    @apply px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .form-input {
+    @apply w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-foreground font-medium py-2.5 px-4 rounded-lg border border-border transition-all duration-200 hover:bg-secondary/80;
+  }
+
+  .section-title {
+    @apply text-lg font-bold text-foreground font-display;
+  }
+
+  .page-container {
+    @apply min-h-screen bg-background;
+  }
+
+  .content-area {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
+  }
+}
