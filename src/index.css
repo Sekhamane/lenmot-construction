@@ -69,9 +69,21 @@
     @apply border-border;
   }
 
+  html, body, #root {
+    min-height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    background: hsl(var(--background));
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    overflow-x: hidden;
+    touch-action: manipulation;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -133,6 +145,42 @@
   }
 
   .content-area {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
+    @apply max-w-7xl mx-auto w-full px-3 sm:px-5 lg:px-8 py-4 sm:py-6;
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .pt-safe {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (max-width: 767px) {
+  .glass-card {
+    border-radius: 0.875rem;
+  }
+
+  .metric-card {
+    padding: 0.875rem;
+  }
+
+  .nav-item {
+    padding: 0.75rem 0.875rem;
+  }
+}
+
+@media (max-width: 767px), (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -3,3 +3,11 @@ import App from "./App.tsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+const splash = document.getElementById("app-splash");
+if (splash) {
+	requestAnimationFrame(() => {
+		splash.classList.add("hidden");
+		setTimeout(() => splash.remove(), 260);
+	});
+}
