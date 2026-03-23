@@ -38,7 +38,7 @@ export default function EmployeeFormPage() {
     }
   }, [editId, employees]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error('Name is required'); return; }
     const data = {
@@ -47,10 +47,18 @@ export default function EmployeeFormPage() {
       role: role.trim(), phone: phone.trim(), startDate, isActive,
     };
     if (editId) {
-      updateEmployee(editId, data);
+      const result = await updateEmployee(editId, data);
+      if (!result.success) {
+        toast.error(result.error || 'Failed to update employee');
+        return;
+      }
       toast.success('Employee updated');
     } else {
-      addEmployee(data);
+      const result = await addEmployee(data);
+      if (!result.success) {
+        toast.error(result.error || 'Failed to add employee');
+        return;
+      }
       toast.success('Employee added');
     }
     navigate('/more');
@@ -67,7 +75,7 @@ export default function EmployeeFormPage() {
         <FormField label="Phone"><Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+266..." /></FormField>
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Contract Type">
-            <select value={contractType} onChange={e => setContractType(e.target.value as any)}
+            <select value={contractType} onChange={e => setContractType(e.target.value as 'Permanent' | 'Contract' | 'Casual')}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
               {['Permanent', 'Contract', 'Casual'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>

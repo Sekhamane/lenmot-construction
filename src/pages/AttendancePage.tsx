@@ -17,17 +17,22 @@ export default function AttendancePage() {
     deleteAttendance, getTodayAttendance, getEmployeeTodayRecord, getMonthlyAttendanceSummary,
   } = useAppData();
 
-  const [selectedProject, setSelectedProject] = useState<string>('all');
+  // Get default project ID (first active project)
+  const defaultProjectId = useMemo(() => {
+    const activeProj = projects.find(p => p.status === 'Active');
+    return activeProj?.id || '';
+  }, [projects]);
+
+  const [selectedProject, setSelectedProject] = useState<string>(() => defaultProjectId);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [summaryMonth, setSummaryMonth] = useState(new Date().toISOString().substring(0, 7));
 
   const activeEmployees = useMemo(() => {
-    let filtered = employees.filter(e => e.isActive);
-    if (selectedProject !== 'all') {
-      const proj = projects.find(p => p.id === selectedProject);
-      if (proj) filtered = filtered.filter(e => e.assignedProject === proj.name);
-    }
+    const proj = projects.find(p => p.id === selectedProject);
+    if (!proj) return [];
+    
+    let filtered = employees.filter(e => e.isActive && e.assignedProject === proj.name);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(e => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q));
@@ -35,12 +40,42 @@ export default function AttendancePage() {
     return filtered;
   }, [employees, selectedProject, projects, searchQuery]);
 
-  const todayRecords = useMemo(() => getTodayAttendance(selectedDate), [getTodayAttendance, selectedDate]);
-  const monthlySummary = useMemo(() => getMonthlyAttendanceSummary(summaryMonth), [getMonthlyAttendanceSummary, summaryMonth]);
+  const todayRecords = useMemo(() => {
+    const proj = projects.find(p => p.id === selectedProject);
+    if (!proj) return [];
+    const records = getTodayAttendance(selectedDate);
+    return records.filter(r => r.projectName === proj.name);
+  }, [getTodayAttendance, selectedDate, selectedProject, projects]);
+
+  const monthlySummary = useMemo(() => {
+    const proj = projects.find(p => p.id === selectedProject);
+    if (!proj) return [];
+    const summary = getMonthlyAttendanceSummary(summaryMonth);
+    return summary.filter(s => s.projectName === proj.name);
+  }, [getMonthlyAttendanceSummary, summaryMonth, selectedProject, projects]);
 
   const checkedIn = todayRecords.filter(r => r.status === 'checked_in').length;
   const checkedOut = todayRecords.filter(r => r.status === 'checked_out').length;
   const absent = todayRecords.filter(r => r.status === 'absent').length;
+
+  const openCheckInEmailDraft = useCallback((empName: string, projectName: string) => {
+    if (currentUser?.role !== 'Site Supervisor') return;
+    const configuredRecipients = (import.meta.env.VITE_ATTENDANCE_NOTIFICATION_EMAILS as string | undefined)
+      ?.split(',')
+      .map(v => v.trim())
+      .filter(Boolean) || [];
+    const recipients = configuredRecipients.length > 0
+      ? configuredRecipients
+      : (currentUser?.email ? [currentUser.email] : []);
+    if (recipients.length === 0) return;
+
+    const dateText = new Date(selectedDate).toLocaleDateString();
+    const subject = encodeURIComponent(`Attendance Check-In: ${empName}`);
+    const body = encodeURIComponent(
+      `Employee: ${empName}\nProject: ${projectName}\nChecked in by: ${currentUser?.name || 'Supervisor'}\nDate: ${dateText}`,
+    );
+    window.open(`mailto:${recipients.join(',')}?subject=${subject}&body=${body}`, '_blank');
+  }, [currentUser?.email, currentUser?.name, currentUser?.role, selectedDate]);
 
   const handleCheckIn = (emp: typeof activeEmployees[0]) => {
     const proj = projects.find(p => p.name === emp.assignedProject);
@@ -49,6 +84,7 @@ export default function AttendancePage() {
     if (existing) { toast.error('Already has a record today'); return; }
     checkInEmployee(emp.id, emp.name, proj.id, proj.name, currentUser?.name || 'Unknown');
     toast.success(`${emp.name} checked in`);
+    openCheckInEmailDraft(emp.name, proj.name);
   };
 
   const handleCheckOut = (recordId: string, empName: string) => {
@@ -142,9 +178,8 @@ export default function AttendancePage() {
               <Input placeholder="Search employees..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
             <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Projects" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Select Project" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
                 {projects.filter(p => p.status === 'Active').map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}

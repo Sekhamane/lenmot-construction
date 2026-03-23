@@ -17,17 +17,34 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
-  const { projects, transactions, employees, updateProject, deleteProject, addBillingStage, updateBillingStage, deleteBillingStage, getProjectCosts } = useAppData();
+  const { projects, transactions, employees, updateProject, deleteProject, addBillingStage, updateBillingStage, deleteBillingStage, updateEmployee, getProjectCosts } = useAppData();
 
   const project = useMemo(() => projects.find(p => p.id === id), [projects, id]);
   const projectTransactions = useMemo(() => transactions.filter(t => t.projectId === id), [transactions, id]);
   const projectEmployees = useMemo(() => employees.filter(e => e.assignedProject === project?.name), [employees, project]);
   const costs = useMemo(() => id ? getProjectCosts(id) : null, [id, getProjectCosts]);
+  const activeEmployees = useMemo(
+    () => employees.filter(e => e.isActive && e.name.trim().length > 0),
+    [employees],
+  );
+  const supervisorCandidates = useMemo(() => {
+    const likelySupervisors = activeEmployees.filter(e => {
+      const role = (e.role || '').toLowerCase();
+      return role.includes('site supervisor') || role.includes('supervisor') || role.includes('foreman');
+    });
+    const source = likelySupervisors.length > 0 ? likelySupervisors : activeEmployees;
+    return [...source].sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeEmployees]);
+  const assignableEmployees = useMemo(
+    () => activeEmployees.filter(e => e.assignedProject !== project?.name).sort((a, b) => a.name.localeCompare(b.name)),
+    [activeEmployees, project?.name],
+  );
 
   const [editing, setEditing] = useState(false);
   const [editStatus, setEditStatus] = useState<ProjectStatus>('Planned');
   const [editCompletion, setEditCompletion] = useState('0');
-  const [editSupervisor, setEditSupervisor] = useState('');
+  const [editSupervisorId, setEditSupervisorId] = useState('');
+  const [assignEmployeeId, setAssignEmployeeId] = useState('');
 
   const [showStageForm, setShowStageForm] = useState(false);
   const [stageName, setStageName] = useState('');
@@ -49,12 +66,22 @@ export default function ProjectDetailPage() {
   const handleStartEdit = () => {
     setEditStatus(project.status);
     setEditCompletion(String(project.completionPercent));
-    setEditSupervisor(project.supervisor || '');
+    const matched = supervisorCandidates.find(
+      e => e.name.trim().toLowerCase() === (project.supervisor || '').trim().toLowerCase(),
+    );
+    setEditSupervisorId(matched?.id || '');
     setEditing(true);
   };
 
   const handleSaveEdit = () => {
-    updateProject(project.id, { status: editStatus, completionPercent: parseInt(editCompletion) || 0, supervisor: editSupervisor.trim() });
+    const selectedSupervisor = supervisorCandidates.find(e => e.id === editSupervisorId);
+    const fallbackSupervisor = project.supervisor || '';
+    const supervisorName = (selectedSupervisor?.name || fallbackSupervisor).trim();
+    updateProject(project.id, {
+      status: editStatus,
+      completionPercent: parseInt(editCompletion) || 0,
+      supervisor: supervisorName,
+    });
     setEditing(false);
     toast.success('Project updated');
   };
@@ -77,6 +104,26 @@ export default function ProjectDetailPage() {
     setStageName(''); setStageAmount(''); setStageDueDate(''); setStageRetention('5');
     setShowStageForm(false);
     toast.success('Billing stage added');
+  };
+
+  const handleAssignEmployee = () => {
+    if (!assignEmployeeId) {
+      toast.error('Select an employee to assign');
+      return;
+    }
+    const employee = employees.find(e => e.id === assignEmployeeId);
+    if (!employee) {
+      toast.error('Employee not found');
+      return;
+    }
+    updateEmployee(assignEmployeeId, { assignedProject: project.name });
+    setAssignEmployeeId('');
+    toast.success(`${employee.name} assigned to ${project.name}`);
+  };
+
+  const handleUnassignEmployee = (employeeId: string, employeeName: string) => {
+    updateEmployee(employeeId, { assignedProject: '' });
+    toast.success(`${employeeName} removed from ${project.name}`);
   };
 
   const totalBilled = project.billingStages.reduce((s, b) => s + (b.invoiced ? b.amount : 0), 0);
@@ -122,10 +169,10 @@ export default function ProjectDetailPage() {
             <Input type="number" min="0" max="100" value={editCompletion} onChange={e => setEditCompletion(e.target.value)} />
           </FormField>
           <FormField label="Supervisor">
-            <select value={editSupervisor} onChange={e => setEditSupervisor(e.target.value)}
+            <select value={editSupervisorId} onChange={e => setEditSupervisorId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
               <option value="">— Select —</option>
-              {employees.filter(e => e.isActive).map(e => <option key={e.id} value={e.name}>{e.name} ({e.role})</option>)}
+              {supervisorCandidates.map(e => <option key={e.id} value={e.id}>{e.name} ({e.role || 'Staff'})</option>)}
             </select>
           </FormField>
         </div>
@@ -221,7 +268,27 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Team */}
-      <SectionHeader title="Team" subtitle={`${projectEmployees.length} assigned`} />
+      <SectionHeader
+        title="Team"
+        subtitle={`${projectEmployees.length} assigned`}
+        action={hasPermission('employees') ? (
+          <div className="flex items-center gap-2">
+            <select
+              value={assignEmployeeId}
+              onChange={e => setAssignEmployeeId(e.target.value)}
+              className="flex h-9 rounded-md border border-input bg-background px-3 py-2 text-sm min-w-[220px]"
+            >
+              <option value="">Assign employee...</option>
+              {assignableEmployees.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.name} ({emp.role || 'Staff'})</option>
+              ))}
+            </select>
+            <button onClick={handleAssignEmployee} className="btn-primary text-sm flex items-center gap-1">
+              <Plus className="w-4 h-4" /> Assign
+            </button>
+          </div>
+        ) : undefined}
+      />
       <div className="space-y-2 mb-6">
         {projectEmployees.map(emp => (
           <div key={emp.id} className="glass-card p-3 flex items-center justify-between">
@@ -229,10 +296,22 @@ export default function ProjectDetailPage() {
               <p className="text-sm font-medium text-foreground">{emp.name}</p>
               <p className="text-xs text-muted-foreground">{emp.role} • {emp.classification}</p>
             </div>
-            <p className="text-sm text-foreground">{formatCurrencyFull(emp.dailyRate)}/day</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-foreground">{formatCurrencyFull(emp.dailyRate)}/day</p>
+              {hasPermission('employees') && (
+                <button
+                  onClick={() => handleUnassignEmployee(emp.id, emp.name)}
+                  className="text-xs px-2 py-1 rounded bg-secondary text-muted-foreground hover:text-destructive"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
         ))}
-        {projectEmployees.length === 0 && <p className="text-sm text-muted-foreground">No employees assigned</p>}
+        {projectEmployees.length === 0 && (
+          <p className="text-sm text-muted-foreground">No employees assigned. Use the assign control above, or edit an employee and set Assigned Project.</p>
+        )}
       </div>
 
       {/* Transactions */}

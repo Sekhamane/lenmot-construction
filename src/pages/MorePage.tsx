@@ -143,7 +143,14 @@ export default function MorePage() {
                 <div className="flex items-center gap-2">
                   <StatusBadge status={emp.isActive ? 'active' : 'suspended'} />
                   <button onClick={() => navigate(`/employee-form?id=${emp.id}`)} className="text-muted-foreground hover:text-primary"><Pencil className="w-4 h-4" /></button>
-                  <button onClick={() => { deleteEmployee(emp.id); toast.success('Employee deleted'); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={async () => {
+                    const result = await deleteEmployee(emp.id);
+                    if (!result.success) {
+                      toast.error(result.error || 'Failed to delete employee');
+                      return;
+                    }
+                    toast.success('Employee deleted');
+                  }} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
@@ -172,6 +179,11 @@ export default function MorePage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">{mat.name}</p>
                   <p className="text-xs text-muted-foreground">{mat.category} • {mat.location}</p>
+                  {mat.receiptDataUrl && (
+                    <a href={mat.receiptDataUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                      View receipt{mat.receiptFileName ? ` (${mat.receiptFileName})` : ''}
+                    </a>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
@@ -210,6 +222,11 @@ export default function MorePage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">{eq.name}</p>
                   <p className="text-xs text-muted-foreground">{eq.type} • {eq.assignedProject}</p>
+                  {eq.receiptDataUrl && (
+                    <a href={eq.receiptDataUrl} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                      View receipt{eq.receiptFileName ? ` (${eq.receiptFileName})` : ''}
+                    </a>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={eq.status} />

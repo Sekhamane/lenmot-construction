@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { SectionHeader } from '@/components/SectionHeader';
 import { ProgressBar } from '@/components/ProgressBar';
 import { useAppData } from '@/contexts/AppDataContext';
 import { formatCurrency, formatCurrencyFull } from '@/utils/format';
+import { Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function ReportsPage() {
   const { projects, transactions, getFinancialSummary, getProjectBudgetUsed, getIncomeStatement } = useAppData();
@@ -10,9 +12,76 @@ export default function ReportsPage() {
   const incomeStatement = useMemo(() => getIncomeStatement(), [getIncomeStatement]);
   const activeProjects = useMemo(() => projects.filter(p => p.status === 'Active'), [projects]);
 
+  const getReportRows = useCallback((): { headers: string[]; rows: Array<Array<string | number>> } => {
+    const rows: Array<Array<string | number>> = [
+      ['Income Statement', 'Contract Revenue', incomeStatement.contractRevenue],
+      ['Income Statement', 'Other Income', incomeStatement.otherIncome],
+      ['Income Statement', 'Total Revenue', incomeStatement.totalRevenue],
+      ['Income Statement', 'Cost of Construction', incomeStatement.totalCostOfConstruction],
+      ['Income Statement', 'Overheads', incomeStatement.overheadExpense],
+      ['Income Statement', 'Net Profit', incomeStatement.netProfit],
+      ['Financial Summary', 'Total Revenue', summary.totalRevenue],
+      ['Financial Summary', 'Total Expenses', summary.totalExpenses],
+      ['Financial Summary', 'Receivables', summary.totalReceivables],
+      ['Financial Summary', 'Payables', summary.totalPayables],
+    ];
+
+    activeProjects.forEach(p => {
+      const budgetUsed = getProjectBudgetUsed(p.id);
+      const profit = p.contractValue - budgetUsed;
+      const margin = p.contractValue > 0 ? (profit / p.contractValue) * 100 : 0;
+      rows.push(['Project Profitability', `${p.name} - Contract`, p.contractValue]);
+      rows.push(['Project Profitability', `${p.name} - Cost`, budgetUsed]);
+      rows.push(['Project Profitability', `${p.name} - Margin %`, margin.toFixed(1)]);
+    });
+
+    return { headers: ['Section', 'Metric', 'Value'], rows };
+  }, [activeProjects, getProjectBudgetUsed, incomeStatement, summary]);
+
+  const exportReportsCSV = useCallback(() => {
+    const { headers, rows } = getReportRows();
+    if (rows.length === 0) { toast.error('No report data to export'); return; }
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reports-export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Reports exported as CSV');
+  }, [getReportRows]);
+
+  const exportReportsPDF = useCallback(() => {
+    const { headers, rows } = getReportRows();
+    if (rows.length === 0) { toast.error('No report data to export'); return; }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { toast.error('Please allow popups'); return; }
+    const tableHead = headers.map(h => `<th>${h}</th>`).join('');
+    const tableRows = rows.map(r => `<tr>${r.map(c => `<td>${String(c)}</td>`).join('')}</tr>`).join('');
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Reports Export</title>
+      <style>body{font-family:Arial,sans-serif;padding:20px}h1{font-size:18px;margin-bottom:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:left}th{background:#f5f5f5}</style>
+      </head><body><h1>Reports Export</h1><table><thead><tr>${tableHead}</tr></thead><tbody>${tableRows}</tbody></table>
+      <script>window.onload=()=>window.print()</script></body></html>`);
+    printWindow.document.close();
+    toast.success('Reports PDF opened');
+  }, [getReportRows]);
+
   return (
     <div className="content-area pb-24 md:pb-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-foreground font-display mb-6">Reports</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground font-display">Reports</h1>
+        <div className="flex items-center gap-2">
+          <button onClick={exportReportsCSV} className="btn-secondary text-xs flex items-center gap-1">
+            <Download className="w-3.5 h-3.5" /> CSV
+          </button>
+          <button onClick={exportReportsPDF} className="btn-secondary text-xs flex items-center gap-1">
+            <Download className="w-3.5 h-3.5" /> PDF
+          </button>
+        </div>
+      </div>
 
       {/* Income Statement */}
       <SectionHeader title="Income Statement" subtitle="Current period" />

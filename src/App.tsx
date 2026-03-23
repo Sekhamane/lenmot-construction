@@ -36,6 +36,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PermissionGuard({ permission, children }: { permission: string; children: React.ReactNode }) {
+  const { hasPermission } = useAuth();
+  if (!hasPermission(permission)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function AppLayout() {
   return (
     <AuthGuard>
@@ -48,17 +54,17 @@ function AppLayout() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/project-form" element={<ProjectFormPage />} />
               <Route path="/projects/:id" element={<ProjectDetailPage />} />
-              <Route path="/finance" element={<FinancePage />} />
-              <Route path="/transaction-form" element={<TransactionFormPage />} />
-              <Route path="/loan-form" element={<LoanFormPage />} />
-              <Route path="/investor-form" element={<InvestorFormPage />} />
+              <Route path="/finance" element={<PermissionGuard permission="finance"><FinancePage /></PermissionGuard>} />
+              <Route path="/transaction-form" element={<PermissionGuard permission="finance"><TransactionFormPage /></PermissionGuard>} />
+              <Route path="/loan-form" element={<PermissionGuard permission="finance"><LoanFormPage /></PermissionGuard>} />
+              <Route path="/investor-form" element={<PermissionGuard permission="finance"><InvestorFormPage /></PermissionGuard>} />
               <Route path="/employee-form" element={<EmployeeFormPage />} />
               <Route path="/material-form" element={<MaterialFormPage />} />
               <Route path="/equipment-form" element={<EquipmentFormPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/admin-users" element={<AdminUsersPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports" element={<PermissionGuard permission="reports"><ReportsPage /></PermissionGuard>} />
               <Route path="/more" element={<MorePage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -74,7 +80,7 @@ const App = () => (
     <TooltipProvider>
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />

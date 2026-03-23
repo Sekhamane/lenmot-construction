@@ -24,6 +24,9 @@ export default function MaterialFormPage() {
   const [location, setLocation] = useState('');
   const [minStock, setMinStock] = useState('10');
   const [linkedProject, setLinkedProject] = useState('');
+  const [receiptDataUrl, setReceiptDataUrl] = useState('');
+  const [receiptFileName, setReceiptFileName] = useState('');
+  const [receiptMimeType, setReceiptMimeType] = useState('');
 
   useEffect(() => {
     if (editId) {
@@ -33,9 +36,30 @@ export default function MaterialFormPage() {
         setQuantity(String(mat.quantity)); setUnitCost(String(mat.unitCost));
         setLocation(mat.location); setMinStock(String(mat.minStock));
         setLinkedProject(mat.linkedProject);
+        setReceiptDataUrl(mat.receiptDataUrl || '');
+        setReceiptFileName(mat.receiptFileName || '');
+        setReceiptMimeType(mat.receiptMimeType || '');
       }
     }
   }, [editId, materials]);
+
+  const handleReceiptFile = (file: File | null) => {
+    if (!file) {
+      setReceiptDataUrl('');
+      setReceiptFileName('');
+      setReceiptMimeType('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setReceiptDataUrl(result);
+      setReceiptFileName(file.name);
+      setReceiptMimeType(file.type || 'application/octet-stream');
+    };
+    reader.onerror = () => toast.error('Failed to read receipt file');
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +69,9 @@ export default function MaterialFormPage() {
       unitCost: parseFloat(unitCost) || 0, location: location.trim(),
       minStock: parseFloat(minStock) || 10, lastRestocked: new Date().toISOString().split('T')[0],
       linkedProject,
+      receiptDataUrl,
+      receiptFileName,
+      receiptMimeType,
     };
     if (editId) {
       updateMaterial(editId, data);
@@ -81,6 +108,16 @@ export default function MaterialFormPage() {
             <option value="">— None —</option>
             {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
           </select>
+        </FormField>
+        <FormField label="Receipt / Supplier Invoice (optional)">
+          <Input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={e => handleReceiptFile(e.target.files?.[0] || null)}
+          />
+          {receiptFileName && (
+            <p className="text-xs text-muted-foreground mt-1">Attached: {receiptFileName}</p>
+          )}
         </FormField>
         <Button type="submit" className="w-full">{editId ? 'Update' : 'Add'} Material</Button>
       </form>

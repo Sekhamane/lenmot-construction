@@ -76,6 +76,9 @@ export interface Material {
   minStock: number;
   lastRestocked: string;
   linkedProject: string;
+  receiptDataUrl?: string;
+  receiptFileName?: string;
+  receiptMimeType?: string;
 }
 
 export interface Equipment {
@@ -88,6 +91,9 @@ export interface Equipment {
   status: 'Available' | 'In Use' | 'Maintenance';
   fuelUsagePerDay: number;
   lastMaintenance: string;
+  receiptDataUrl?: string;
+  receiptFileName?: string;
+  receiptMimeType?: string;
 }
 
 export interface Transaction {
@@ -100,6 +106,9 @@ export interface Transaction {
   projectId: string;
   projectName: string;
   approvedBy: string;
+  receiptDataUrl?: string;
+  receiptFileName?: string;
+  receiptMimeType?: string;
 }
 
 export interface Loan {
@@ -197,6 +206,28 @@ export interface IncomeStatementData {
   totalOperatingExpenses: number;
   operatingProfit: number;
   netProfit: number;
+}
+
+export interface BalanceSheetData {
+  asOfDate: string;
+  assets: {
+    cashAndBank: number;
+    accountsReceivable: number;
+    inventoryMaterials: number;
+    fixedAssets: number;
+    totalAssets: number;
+  };
+  liabilities: {
+    accountsPayable: number;
+    loansPayable: number;
+    totalLiabilities: number;
+  };
+  equity: {
+    ownersEquity: number;
+    retainedEarnings: number;
+    totalEquity: number;
+  };
+  totalLiabilitiesAndEquity: number;
 }
 
 export interface MonthlyAttendanceSummary {

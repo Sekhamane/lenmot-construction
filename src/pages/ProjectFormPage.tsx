@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { FormField } from '@/components/FormField';
@@ -20,12 +20,24 @@ export default function ProjectFormPage() {
   const [startDate, setStartDate] = useState('');
   const [expectedCompletion, setExpectedCompletion] = useState('');
   const [projectManager, setProjectManager] = useState('');
-  const [supervisor, setSupervisor] = useState('');
+  const [supervisorId, setSupervisorId] = useState('');
   const [siteLocation, setSiteLocation] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('Planned');
   const [completionPercent, setCompletionPercent] = useState('0');
 
-  const supervisorCandidates = employees.filter(e => e.isActive && (e.role.toLowerCase().includes('supervisor') || e.role.toLowerCase().includes('foreman') || true));
+  const activeEmployees = useMemo(
+    () => employees.filter(e => e.isActive && e.name.trim().length > 0),
+    [employees],
+  );
+
+  const supervisorCandidates = useMemo(() => {
+    const likelySupervisors = activeEmployees.filter(e => {
+      const role = (e.role || '').toLowerCase();
+      return role.includes('site supervisor') || role.includes('supervisor') || role.includes('foreman');
+    });
+    const source = likelySupervisors.length > 0 ? likelySupervisors : activeEmployees;
+    return [...source].sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeEmployees]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +45,8 @@ export default function ProjectFormPage() {
       toast.error('Project name and client are required');
       return;
     }
-    if (!supervisor.trim()) {
+    const selectedSupervisor = supervisorCandidates.find(e => e.id === supervisorId);
+    if (!selectedSupervisor) {
       toast.error('Supervisor is required for every project');
       return;
     }
@@ -44,7 +57,7 @@ export default function ProjectFormPage() {
       startDate,
       expectedCompletion,
       projectManager: projectManager.trim(),
-      supervisor: supervisor.trim(),
+      supervisor: selectedSupervisor.name,
       siteLocation: siteLocation.trim(),
       status,
       completionPercent: parseInt(completionPercent) || 0,
@@ -82,11 +95,14 @@ export default function ProjectFormPage() {
           <Input value={projectManager} onChange={e => setProjectManager(e.target.value)} placeholder="Manager name" />
         </FormField>
         <FormField label="Site Supervisor *">
-          <select value={supervisor} onChange={e => setSupervisor(e.target.value)}
+          <select value={supervisorId} onChange={e => setSupervisorId(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <option value="">— Select Supervisor —</option>
-            {supervisorCandidates.map(e => <option key={e.id} value={e.name}>{e.name} ({e.role})</option>)}
+            {supervisorCandidates.map(e => <option key={e.id} value={e.id}>{e.name} ({e.role || 'Staff'})</option>)}
           </select>
+          {activeEmployees.length === 0 && (
+            <p className="text-xs text-muted-foreground mt-1">No active employees found. Add employees first, then create a project.</p>
+          )}
         </FormField>
         <FormField label="Site Location">
           <Input value={siteLocation} onChange={e => setSiteLocation(e.target.value)} placeholder="Location" />

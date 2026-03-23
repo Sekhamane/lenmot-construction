@@ -3,7 +3,7 @@ import {
   Project, Transaction, Employee, Material, Equipment,
   Loan, Investor, BillingStageItem, FinancialSummary, ProjectCosts,
   JournalEntry, JournalLine, AccountBalance, AccountType,
-  AttendanceRecord, IncomeStatementData, MonthlyAttendanceSummary,
+  AttendanceRecord, IncomeStatementData, MonthlyAttendanceSummary, BalanceSheetData,
 } from '@/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import {
@@ -89,9 +89,9 @@ interface AppDataState {
   addTransaction: (tx: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
-  addEmployee: (emp: Omit<Employee, 'id'>) => void;
-  updateEmployee: (id: string, updates: Partial<Employee>) => void;
-  deleteEmployee: (id: string) => void;
+  addEmployee: (emp: Omit<Employee, 'id'>) => Promise<{ success: boolean; error?: string }>;
+  updateEmployee: (id: string, updates: Partial<Employee>) => Promise<{ success: boolean; error?: string }>;
+  deleteEmployee: (id: string) => Promise<{ success: boolean; error?: string }>;
   addMaterial: (mat: Omit<Material, 'id'>) => void;
   updateMaterial: (id: string, updates: Partial<Material>) => void;
   deleteMaterial: (id: string) => void;
@@ -118,11 +118,61 @@ interface AppDataState {
   getProjectCosts: (projectId: string) => ProjectCosts;
   getFinancialSummary: () => FinancialSummary;
   getIncomeStatement: () => IncomeStatementData;
+  getBalanceSheet: () => BalanceSheetData;
   getTrialBalance: () => AccountBalance[];
   getLedgerByAccount: (accountCode: string) => JournalEntry[];
 }
 
 const AppDataContext = createContext<AppDataState | null>(null);
+
+const APP_DATA_STORAGE_KEY = 'lenmot.appData.v1';
+
+type CachedAppData = {
+  projects: Project[];
+  transactions: Transaction[];
+  employees: Employee[];
+  materials: Material[];
+  equipment: Equipment[];
+  loans: Loan[];
+  investors: Investor[];
+  journalEntries: JournalEntry[];
+  attendance: AttendanceRecord[];
+};
+
+function readCachedData(): CachedAppData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(APP_DATA_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as CachedAppData;
+  } catch (err) {
+    console.error('[AppData] Failed to read cache:', err);
+    return null;
+  }
+}
+
+function mergeReceiptFields<T extends { id: string }>(
+  baseItems: T[],
+  cachedItems: T[] | undefined,
+): T[] {
+  if (!cachedItems || cachedItems.length === 0) return baseItems;
+  const cachedById = new Map(cachedItems.map(item => [item.id, item]));
+  return baseItems.map(item => {
+    const cached = cachedById.get(item.id) as Record<string, unknown> | undefined;
+    if (!cached) return item;
+    const itemWithReceipt = item as T & {
+      receiptDataUrl?: string;
+      receiptFileName?: string;
+      receiptMimeType?: string;
+    };
+    return {
+      ...item,
+      receiptDataUrl: (cached.receiptDataUrl as string | undefined) || itemWithReceipt.receiptDataUrl,
+      receiptFileName: (cached.receiptFileName as string | undefined) || itemWithReceipt.receiptFileName,
+      receiptMimeType: (cached.receiptMimeType as string | undefined) || itemWithReceipt.receiptMimeType,
+    } as T;
+  });
+}
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -139,6 +189,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void (async () => {
       try {
+        const cached = readCachedData();
+        if (cached) {
+          setProjects(cached.projects || []);
+          setTransactions(cached.transactions || []);
+          setEmployees(cached.employees || []);
+          setMaterials(cached.materials || []);
+          setEquipment(cached.equipment || []);
+          setLoans(cached.loans || []);
+          setInvestors(cached.investors || []);
+          setJournalEntries(cached.journalEntries || []);
+          setAttendance(cached.attendance || []);
+        }
+
         if (isSupabaseConfigured) {
           const [pRes, tRes, eRes, mRes, eqRes, lRes, invRes, jeRes, attRes] = await Promise.all([
             supabase.from('projects').select('*, billing_stages(*)'),
@@ -151,15 +214,26 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             supabase.from('journal_entries').select('*, journal_lines(*)').order('created_at', { ascending: false }),
             supabase.from('attendance_records').select('*').order('date', { ascending: false }),
           ]);
-          if (pRes.data) setProjects(pRes.data.map(rowToProject));
-          if (tRes.data) setTransactions(tRes.data.map(rowToTransaction));
-          if (eRes.data) setEmployees(eRes.data.map(rowToEmployee));
-          if (mRes.data) setMaterials(mRes.data.map(rowToMaterial));
-          if (eqRes.data) setEquipment(eqRes.data.map(rowToEquipment));
-          if (lRes.data) setLoans(lRes.data.map(rowToLoan));
-          if (invRes.data) setInvestors(invRes.data.map(rowToInvestor));
-          if (jeRes.data) setJournalEntries(jeRes.data.map(rowToJournalEntry));
-          if (attRes.data) setAttendance(attRes.data.map(rowToAttendance));
+
+          if (pRes.error) console.error('[AppData] Load projects error:', pRes.error.message);
+          if (tRes.error) console.error('[AppData] Load transactions error:', tRes.error.message);
+          if (eRes.error) console.error('[AppData] Load employees error:', eRes.error.message);
+          if (mRes.error) console.error('[AppData] Load materials error:', mRes.error.message);
+          if (eqRes.error) console.error('[AppData] Load equipment error:', eqRes.error.message);
+          if (lRes.error) console.error('[AppData] Load loans error:', lRes.error.message);
+          if (invRes.error) console.error('[AppData] Load investors error:', invRes.error.message);
+          if (jeRes.error) console.error('[AppData] Load journal entries error:', jeRes.error.message);
+          if (attRes.error) console.error('[AppData] Load attendance error:', attRes.error.message);
+
+          if (!pRes.error && pRes.data) setProjects(pRes.data.map(rowToProject));
+          if (!tRes.error && tRes.data) setTransactions(mergeReceiptFields(tRes.data.map(rowToTransaction), cached?.transactions));
+          if (!eRes.error && eRes.data) setEmployees(eRes.data.map(rowToEmployee));
+          if (!mRes.error && mRes.data) setMaterials(mergeReceiptFields(mRes.data.map(rowToMaterial), cached?.materials));
+          if (!eqRes.error && eqRes.data) setEquipment(mergeReceiptFields(eqRes.data.map(rowToEquipment), cached?.equipment));
+          if (!lRes.error && lRes.data) setLoans(lRes.data.map(rowToLoan));
+          if (!invRes.error && invRes.data) setInvestors(invRes.data.map(rowToInvestor));
+          if (!jeRes.error && jeRes.data) setJournalEntries(jeRes.data.map(rowToJournalEntry));
+          if (!attRes.error && attRes.data) setAttendance(attRes.data.map(rowToAttendance));
         }
       } catch (err) {
         console.error('[AppData] Load error:', err);
@@ -168,6 +242,26 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined') return;
+    try {
+      const snapshot: CachedAppData = {
+        projects,
+        transactions,
+        employees,
+        materials,
+        equipment,
+        loans,
+        investors,
+        journalEntries,
+        attendance,
+      };
+      window.localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch (err) {
+      console.error('[AppData] Failed to save cache:', err);
+    }
+  }, [isLoaded, projects, transactions, employees, materials, equipment, loans, investors, journalEntries, attendance]);
 
   const postJournalEntry = useCallback((entry: Omit<JournalEntry, 'id'>) => {
     const newEntry: JournalEntry = { ...entry, id: genId('je') };
@@ -302,21 +396,43 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     sbDelete('transactions', id);
   }, []);
 
-  const addEmployee = useCallback((emp: Omit<Employee, 'id'>) => {
+  const addEmployee = useCallback(async (emp: Omit<Employee, 'id'>): Promise<{ success: boolean; error?: string }> => {
     const newEmp: Employee = { ...emp, id: genId('e') };
     setEmployees(prev => [...prev, newEmp]);
-    sbInsert('employees', employeeToRow(newEmp));
+    if (!isSupabaseConfigured) return { success: true };
+    const { error } = await supabase.from('employees').insert(employeeToRow(newEmp));
+    if (error) {
+      setEmployees(prev => prev.filter(e => e.id !== newEmp.id));
+      return { success: false, error: error.message };
+    }
+    return { success: true };
   }, []);
 
-  const updateEmployee = useCallback((id: string, updates: Partial<Employee>) => {
+  const updateEmployee = useCallback(async (id: string, updates: Partial<Employee>): Promise<{ success: boolean; error?: string }> => {
+    const original = employees.find(e => e.id === id);
+    if (!original) return { success: false, error: 'Employee not found' };
     setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
-    if (isSupabaseConfigured) sbUpdate('employees', id, employeeToRow(updates as any));
-  }, []);
+    if (!isSupabaseConfigured) return { success: true };
+    const { error } = await supabase.from('employees').update(employeeToRow(updates)).eq('id', id);
+    if (error) {
+      setEmployees(prev => prev.map(e => e.id === id ? original : e));
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  }, [employees]);
 
-  const deleteEmployee = useCallback((id: string) => {
+  const deleteEmployee = useCallback(async (id: string): Promise<{ success: boolean; error?: string }> => {
+    const removed = employees.find(e => e.id === id);
+    if (!removed) return { success: false, error: 'Employee not found' };
     setEmployees(prev => prev.filter(e => e.id !== id));
-    sbDelete('employees', id);
-  }, []);
+    if (!isSupabaseConfigured) return { success: true };
+    const { error } = await supabase.from('employees').delete().eq('id', id);
+    if (error) {
+      setEmployees(prev => [...prev, removed]);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  }, [employees]);
 
   const addMaterial = useCallback((mat: Omit<Material, 'id'>) => {
     const newMat: Material = { ...mat, id: genId('m') };
@@ -563,6 +679,66 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return { contractRevenue, otherIncome, totalRevenue, materialsExpense, labourExpense, equipmentExpense, subcontractorExpense, transportExpense, totalCostOfConstruction, grossProfit, overheadExpense, totalOperatingExpenses: overheadExpense, operatingProfit: grossProfit - overheadExpense, netProfit: grossProfit - overheadExpense };
   }, [journalEntries]);
 
+  const getBalanceSheet = useCallback((): BalanceSheetData => {
+    const balances: Record<string, AccountBalance> = {};
+    CHART_OF_ACCOUNTS.forEach(acc => {
+      balances[acc.code] = {
+        accountCode: acc.code,
+        accountName: acc.name,
+        accountType: acc.type,
+        debitTotal: 0,
+        creditTotal: 0,
+        balance: 0,
+      };
+    });
+    journalEntries.forEach(entry => {
+      entry.lines.forEach((line: JournalLine) => {
+        if (balances[line.accountCode]) {
+          balances[line.accountCode].debitTotal += line.debit;
+          balances[line.accountCode].creditTotal += line.credit;
+        }
+      });
+    });
+    Object.values(balances).forEach(acc => {
+      acc.balance = (acc.accountType === 'Asset' || acc.accountType === 'Expense')
+        ? acc.debitTotal - acc.creditTotal
+        : acc.creditTotal - acc.debitTotal;
+    });
+    const accBalance = (code: string) => balances[code]?.balance || 0;
+    const incomeStatement = getIncomeStatement();
+
+    const assets = {
+      cashAndBank: accBalance('1000'),
+      accountsReceivable: accBalance('1100'),
+      inventoryMaterials: accBalance('1200'),
+      fixedAssets: accBalance('1500'),
+      totalAssets: 0,
+    };
+    assets.totalAssets = assets.cashAndBank + assets.accountsReceivable + assets.inventoryMaterials + assets.fixedAssets;
+
+    const liabilities = {
+      accountsPayable: accBalance('2000'),
+      loansPayable: accBalance('2100'),
+      totalLiabilities: 0,
+    };
+    liabilities.totalLiabilities = liabilities.accountsPayable + liabilities.loansPayable;
+
+    const equity = {
+      ownersEquity: accBalance('3000'),
+      retainedEarnings: accBalance('3100') + incomeStatement.netProfit,
+      totalEquity: 0,
+    };
+    equity.totalEquity = equity.ownersEquity + equity.retainedEarnings;
+
+    return {
+      asOfDate: new Date().toISOString().split('T')[0],
+      assets,
+      liabilities,
+      equity,
+      totalLiabilitiesAndEquity: liabilities.totalLiabilities + equity.totalEquity,
+    };
+  }, [getIncomeStatement, journalEntries]);
+
   const getTrialBalance = useCallback((): AccountBalance[] => {
     const balances: Record<string, AccountBalance> = {};
     CHART_OF_ACCOUNTS.forEach(acc => {
@@ -601,7 +777,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     postJournalEntry, deleteJournalEntry,
     checkInEmployee, checkOutEmployee, markAbsent, updateAttendanceNotes, deleteAttendance,
     getTodayAttendance, getEmployeeTodayRecord, getMonthlyAttendanceSummary,
-    getProjectBudgetUsed, getProjectCosts, getFinancialSummary, getIncomeStatement, getTrialBalance, getLedgerByAccount,
+    getProjectBudgetUsed, getProjectCosts, getFinancialSummary, getIncomeStatement, getBalanceSheet, getTrialBalance, getLedgerByAccount,
   }), [
     isLoaded, projects, transactions, employees, materials, equipment, loans, investors, journalEntries, attendance,
     addProject, updateProject, deleteProject,
@@ -615,7 +791,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     postJournalEntry, deleteJournalEntry,
     checkInEmployee, checkOutEmployee, markAbsent, updateAttendanceNotes, deleteAttendance,
     getTodayAttendance, getEmployeeTodayRecord, getMonthlyAttendanceSummary,
-    getProjectBudgetUsed, getProjectCosts, getFinancialSummary, getIncomeStatement, getTrialBalance, getLedgerByAccount,
+    getProjectBudgetUsed, getProjectCosts, getFinancialSummary, getIncomeStatement, getBalanceSheet, getTrialBalance, getLedgerByAccount,
   ]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

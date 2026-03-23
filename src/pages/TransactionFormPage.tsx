@@ -23,9 +23,30 @@ export default function TransactionFormPage() {
   const [category, setCategory] = useState('Materials');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [projectId, setProjectId] = useState('');
+  const [receiptDataUrl, setReceiptDataUrl] = useState('');
+  const [receiptFileName, setReceiptFileName] = useState('');
+  const [receiptMimeType, setReceiptMimeType] = useState('');
 
   const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   const selectedProject = projects.find(p => p.id === projectId);
+
+  const handleReceiptFile = (file: File | null) => {
+    if (!file) {
+      setReceiptDataUrl('');
+      setReceiptFileName('');
+      setReceiptMimeType('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setReceiptDataUrl(result);
+      setReceiptFileName(file.name);
+      setReceiptMimeType(file.type || 'application/octet-stream');
+    };
+    reader.onerror = () => toast.error('Failed to read receipt file');
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +55,9 @@ export default function TransactionFormPage() {
       date, description: description.trim(), amount: parseFloat(amount) || 0,
       type, category, projectId, projectName: selectedProject?.name || '',
       approvedBy: currentUser?.name || '',
+      receiptDataUrl,
+      receiptFileName,
+      receiptMimeType,
     });
     toast.success('Transaction added');
     navigate('/finance');
@@ -69,6 +93,16 @@ export default function TransactionFormPage() {
             <option value="">— No project —</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+        </FormField>
+        <FormField label="Receipt / Invoice (optional)">
+          <Input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={e => handleReceiptFile(e.target.files?.[0] || null)}
+          />
+          {receiptFileName && (
+            <p className="text-xs text-muted-foreground mt-1">Attached: {receiptFileName}</p>
+          )}
         </FormField>
         <Button type="submit" className="w-full">Save Transaction</Button>
       </form>

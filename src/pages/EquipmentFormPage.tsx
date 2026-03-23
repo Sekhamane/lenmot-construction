@@ -21,6 +21,9 @@ export default function EquipmentFormPage() {
   const [status, setStatus] = useState<'Available' | 'In Use' | 'Maintenance'>('Available');
   const [fuelUsage, setFuelUsage] = useState('');
   const [lastMaintenance, setLastMaintenance] = useState('');
+  const [receiptDataUrl, setReceiptDataUrl] = useState('');
+  const [receiptFileName, setReceiptFileName] = useState('');
+  const [receiptMimeType, setReceiptMimeType] = useState('');
 
   useEffect(() => {
     if (editId) {
@@ -30,9 +33,30 @@ export default function EquipmentFormPage() {
         setCurrentValue(String(eq.currentValue)); setAssignedProject(eq.assignedProject);
         setStatus(eq.status); setFuelUsage(String(eq.fuelUsagePerDay));
         setLastMaintenance(eq.lastMaintenance);
+        setReceiptDataUrl(eq.receiptDataUrl || '');
+        setReceiptFileName(eq.receiptFileName || '');
+        setReceiptMimeType(eq.receiptMimeType || '');
       }
     }
   }, [editId, equipment]);
+
+  const handleReceiptFile = (file: File | null) => {
+    if (!file) {
+      setReceiptDataUrl('');
+      setReceiptFileName('');
+      setReceiptMimeType('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setReceiptDataUrl(result);
+      setReceiptFileName(file.name);
+      setReceiptMimeType(file.type || 'application/octet-stream');
+    };
+    reader.onerror = () => toast.error('Failed to read receipt file');
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +65,9 @@ export default function EquipmentFormPage() {
       name: name.trim(), type, purchaseCost: parseFloat(purchaseCost) || 0,
       currentValue: parseFloat(currentValue) || 0, assignedProject,
       status, fuelUsagePerDay: parseFloat(fuelUsage) || 0, lastMaintenance,
+      receiptDataUrl,
+      receiptFileName,
+      receiptMimeType,
     };
     if (editId) {
       updateEquipment(editId, data);
@@ -85,6 +112,16 @@ export default function EquipmentFormPage() {
         )}
         <FormField label="Fuel Usage / Day (L)"><Input type="number" value={fuelUsage} onChange={e => setFuelUsage(e.target.value)} /></FormField>
         <FormField label="Last Maintenance"><Input type="date" value={lastMaintenance} onChange={e => setLastMaintenance(e.target.value)} /></FormField>
+        <FormField label="Purchase Receipt (optional)">
+          <Input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={e => handleReceiptFile(e.target.files?.[0] || null)}
+          />
+          {receiptFileName && (
+            <p className="text-xs text-muted-foreground mt-1">Attached: {receiptFileName}</p>
+          )}
+        </FormField>
         <Button type="submit" className="w-full">{editId ? 'Update' : 'Add'} Equipment</Button>
       </form>
     </div>

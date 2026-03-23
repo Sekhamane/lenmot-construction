@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, FolderKanban, Landmark, BarChart3, ClipboardCheck, MoreHorizontal } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -13,6 +14,12 @@ const navItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const { hasPermission } = useAuth();
+  const visibleNavItems = navItems.filter(item => {
+    if (item.to === '/finance') return hasPermission('finance');
+    if (item.to === '/reports') return hasPermission('reports');
+    return true;
+  });
 
   return (
     <>
@@ -28,7 +35,7 @@ export function AppSidebar() {
           </div>
         </div>
         <nav className="flex-1 space-y-1">
-          {navItems.map(item => {
+          {visibleNavItems.map(item => {
             const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
             return (
               <NavLink key={item.to} to={item.to} className={`nav-item ${isActive ? 'nav-item-active' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}>
@@ -42,7 +49,7 @@ export function AppSidebar() {
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 flex">
-        {navItems.map(item => {
+        {visibleNavItems.map(item => {
           const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
           return (
             <NavLink key={item.to} to={item.to} className={`flex-1 flex flex-col items-center py-2 gap-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>

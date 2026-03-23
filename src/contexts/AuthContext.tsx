@@ -26,12 +26,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
+  const ensureBootstrapAdmin = useCallback(async (userId: string): Promise<void> => {
+    if (!isSupabaseConfigured) return;
+    const { count, error: countError } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'Administrator');
+    if (countError) {
+      console.error('[Auth] Bootstrap admin count error:', countError.message);
+      return;
+    }
+    if ((count ?? 0) > 0) return;
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ role: 'Administrator', status: 'active' })
+      .eq('id', userId);
+    if (updateError) {
+      console.error('[Auth] Bootstrap admin update error:', updateError.message);
+    }
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try {
         if (!isSupabaseConfigured) return;
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          await ensureBootstrapAdmin(session.user.id);
           const { data: profile } = await supabase
             .from('profiles')
             .select('id, name, email, role, status, avatar, created_at')
@@ -56,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     })();
-  }, []);
+  }, [ensureBootstrapAdmin]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -72,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { success: false, error: error.message };
       if (data.user) {
+        await ensureBootstrapAdmin(data.user.id);
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id, name, email, role, status, avatar, created_at')
@@ -89,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       return { success: false, error: err.message || 'Login failed' };
     }
-  }, []);
+  }, [ensureBootstrapAdmin]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
@@ -98,18 +120,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) return { success: false, error: error.message };
       if (data.user) {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await supabase.from('profiles').update({ status: 'pending' }).eq('id', data.user.id);
-        setCurrentUser({
-          id: data.user.id, name, email, phone: '',
-          role: 'Site Supervisor', status: 'pending', createdAt: new Date().toISOString(),
-        });
+        await ensureBootstrapAdmin(data.user.id);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, name, email, role, status, avatar, created_at')
+          .eq('id', data.user.id)
+          .single();
+        if (profile) {
+          setCurrentUser({
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            phone: '',
+            role: profile.role as UserRole,
+            status: (profile.status as UserStatus) || 'pending',
+            avatar: profile.avatar,
+            createdAt: profile.created_at,
+          });
+        } else {
+          setCurrentUser({
+            id: data.user.id,
+            name,
+            email,
+            phone: '',
+            role: 'Site Supervisor',
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+          });
+        }
         return { success: true };
       }
       return { success: false, error: 'Registration failed' };
     } catch (err: any) {
       return { success: false, error: err.message || 'Registration failed' };
     }
-  }, []);
+  }, [ensureBootstrapAdmin]);
 
   const logout = useCallback(async () => {
     if (isSupabaseConfigured) await supabase.auth.signOut();
