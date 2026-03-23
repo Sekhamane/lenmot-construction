@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, FolderKanban, Landmark, BarChart3, ClipboardCheck, MoreHorizontal, Menu } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +24,7 @@ const navItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { hasPermission } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const visibleNavItems = navItems.filter(item => {
     if (item.to === '/finance') return hasPermission('finance');
     if (item.to === '/reports') return hasPermission('reports');
@@ -32,7 +33,7 @@ export function AppSidebar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 md:hidden border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 pt-safe">
+      <header className="sticky top-0 z-40 w-full md:hidden border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 pt-safe">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
@@ -44,14 +45,25 @@ export function AppSidebar() {
             </div>
           </div>
 
-          <Sheet>
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="h-11 w-11">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-navigation-drawer"
+              >
                 <Menu className="w-5 h-5" />
-                <span className="sr-only">Open navigation menu</span>
+                <span className="sr-only">{isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[84vw] max-w-[320px] border-r border-border p-0">
+            <SheetContent
+              id="mobile-navigation-drawer"
+              side="left"
+              className="w-[84vw] max-w-[320px] border-r border-border p-0 md:hidden"
+            >
               <SheetHeader className="px-4 py-4 border-b border-border">
                 <SheetTitle className="flex items-center gap-3 text-left">
                   <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
@@ -68,6 +80,7 @@ export function AppSidebar() {
                       <NavLink
                         to={item.to}
                         className={`nav-item min-h-12 ${isActive ? 'nav-item-active' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+                        aria-current={isActive ? 'page' : undefined}
                       >
                         <item.icon className="w-5 h-5" />
                         <span className="font-medium text-base">{item.label}</span>

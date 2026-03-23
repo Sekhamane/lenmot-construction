@@ -163,6 +163,10 @@
 }
 
 @media (max-width: 767px) {
+  main {
+    width: 100%;
+  }
+
   .glass-card {
     border-radius: 0.875rem;
   }
@@ -173,6 +177,10 @@
 
   .nav-item {
     padding: 0.75rem 0.875rem;
+  }
+
+  .content-area {
+    max-width: 100%;
   }
 }
 

@@ -65,9 +65,9 @@ function AppLayout() {
   return (
     <AuthGuard>
       <AppDataProvider>
-        <div className="flex min-h-screen overflow-x-clip">
+        <div className="min-h-screen overflow-x-clip md:flex">
           <AppSidebar />
-          <main className="flex-1 min-h-screen pb-safe">
+          <main className="min-w-0 flex-1 min-h-screen pb-safe">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
